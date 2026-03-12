@@ -10,6 +10,7 @@ import {
   createMatrixTextMessageEvent,
 } from "./handler.test-helpers.js";
 import type { MatrixRawEvent } from "./types.js";
+import { EventType } from "./types.js";
 
 const sendMessageMatrixMock = vi.hoisted(() =>
   vi.fn(async (..._args: unknown[]) => ({ messageId: "evt", roomId: "!room" })),
@@ -250,6 +251,88 @@ describe("matrix monitor handler pairing account scope", () => {
 
     expect(resolveAgentRoute).not.toHaveBeenCalled();
     expect(recordInboundSession).not.toHaveBeenCalled();
+  });
+
+  it("skips media downloads for unmentioned group media messages", async () => {
+    const downloadContent = vi.fn(async () => Buffer.from("image"));
+    const { handler, resolveAgentRoute } = createMatrixHandlerTestHarness({
+      client: {
+        downloadContent,
+      },
+      isDirectMessage: false,
+      mentionRegexes: [/@bot/i],
+      getMemberDisplayName: async () => "sender",
+    });
+
+    await handler("!room:example.org", {
+      type: EventType.RoomMessage,
+      sender: "@user:example.org",
+      event_id: "$media1",
+      origin_server_ts: Date.now(),
+      content: {
+        msgtype: "m.image",
+        body: "",
+        url: "mxc://example.org/media",
+        info: {
+          mimetype: "image/png",
+          size: 5,
+        },
+      },
+    } as MatrixRawEvent);
+
+    expect(downloadContent).not.toHaveBeenCalled();
+    expect(resolveAgentRoute).not.toHaveBeenCalled();
+  });
+
+  it("skips poll snapshot fetches for unmentioned group poll responses", async () => {
+    const getEvent = vi.fn(async () => ({
+      event_id: "$poll",
+      sender: "@user:example.org",
+      type: "m.poll.start",
+      origin_server_ts: Date.now(),
+      content: {
+        "m.poll.start": {
+          question: { "m.text": "Lunch?" },
+          kind: "m.poll.disclosed",
+          max_selections: 1,
+          answers: [{ id: "a1", "m.text": "Pizza" }],
+        },
+      },
+    }));
+    const getRelations = vi.fn(async () => ({
+      events: [],
+      nextBatch: null,
+      prevBatch: null,
+    }));
+    const { handler, resolveAgentRoute } = createMatrixHandlerTestHarness({
+      client: {
+        getEvent,
+        getRelations,
+      },
+      isDirectMessage: false,
+      mentionRegexes: [/@bot/i],
+      getMemberDisplayName: async () => "sender",
+    });
+
+    await handler("!room:example.org", {
+      type: "m.poll.response",
+      sender: "@user:example.org",
+      event_id: "$poll-response-1",
+      origin_server_ts: Date.now(),
+      content: {
+        "m.poll.response": {
+          answers: ["a1"],
+        },
+        "m.relates_to": {
+          rel_type: "m.reference",
+          event_id: "$poll",
+        },
+      },
+    } as MatrixRawEvent);
+
+    expect(getEvent).not.toHaveBeenCalled();
+    expect(getRelations).not.toHaveBeenCalled();
+    expect(resolveAgentRoute).not.toHaveBeenCalled();
   });
 
   it("records thread starter context for inbound thread replies", async () => {

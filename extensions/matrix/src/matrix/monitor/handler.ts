@@ -14,7 +14,12 @@ import {
 } from "openclaw/plugin-sdk/matrix";
 import type { CoreConfig, MatrixRoomConfig, ReplyToMode } from "../../types.js";
 import { fetchMatrixPollSnapshot } from "../poll-summary.js";
-import { isPollEventType } from "../poll-types.js";
+import {
+  formatPollAsText,
+  isPollEventType,
+  isPollStartType,
+  parsePollStartContent,
+} from "../poll-types.js";
 import type { LocationMessageEventContent, MatrixClient } from "../sdk.js";
 import {
   reactMatrixMessage,
@@ -74,6 +79,26 @@ export type MatrixMonitorHandlerParams = {
   ) => Promise<{ name?: string; canonicalAlias?: string; altAliases: string[] }>;
   getMemberDisplayName: (roomId: string, userId: string) => Promise<string>;
 };
+
+function resolveMatrixMentionPrecheckText(params: {
+  eventType: string;
+  content: RoomMessageEventContent;
+  locationText?: string | null;
+}): string {
+  if (params.locationText?.trim()) {
+    return params.locationText.trim();
+  }
+  if (typeof params.content.body === "string" && params.content.body.trim()) {
+    return params.content.body.trim();
+  }
+  if (isPollStartType(params.eventType)) {
+    const parsed = parsePollStartContent(params.content as never);
+    if (parsed) {
+      return formatPollAsText(parsed);
+    }
+  }
+  return "";
+}
 
 export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParams) {
   const {
@@ -205,21 +230,6 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
       const roomAliases = [roomInfo.canonicalAlias ?? "", ...roomInfo.altAliases].filter(Boolean);
 
       let content = event.content as RoomMessageEventContent;
-      if (isPollEvent) {
-        const pollSnapshot = await fetchMatrixPollSnapshot(client, roomId, event).catch((err) => {
-          logVerboseMessage(
-            `matrix: failed resolving poll snapshot room=${roomId} id=${event.event_id ?? "unknown"}: ${String(err)}`,
-          );
-          return null;
-        });
-        if (!pollSnapshot) {
-          return;
-        }
-        content = {
-          msgtype: "m.text",
-          body: pollSnapshot.text,
-        } as unknown as RoomMessageEventContent;
-      }
 
       if (
         eventType === EventType.RoomMessage &&
@@ -406,13 +416,11 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
         return;
       }
 
-      const rawBody =
-        locationPayload?.text ?? (typeof content.body === "string" ? content.body.trim() : "");
-      let media: {
-        path: string;
-        contentType?: string;
-        placeholder: string;
-      } | null = null;
+      const mentionPrecheckText = resolveMatrixMentionPrecheckText({
+        eventType,
+        content,
+        locationText: locationPayload?.text,
+      });
       const contentUrl =
         "url" in content && typeof content.url === "string" ? content.url : undefined;
       const contentFile =
@@ -420,40 +428,14 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
           ? content.file
           : undefined;
       const mediaUrl = contentUrl ?? contentFile?.url;
-      if (!rawBody && !mediaUrl) {
-        return;
-      }
-
-      const contentInfo =
-        "info" in content && content.info && typeof content.info === "object"
-          ? (content.info as { mimetype?: string; size?: number })
-          : undefined;
-      const contentType = contentInfo?.mimetype;
-      const contentSize = typeof contentInfo?.size === "number" ? contentInfo.size : undefined;
-      if (mediaUrl?.startsWith("mxc://")) {
-        try {
-          media = await downloadMatrixMedia({
-            client,
-            mxcUrl: mediaUrl,
-            contentType,
-            sizeBytes: contentSize,
-            maxBytes: mediaMaxBytes,
-            file: contentFile,
-          });
-        } catch (err) {
-          logVerboseMessage(`matrix: media download failed: ${String(err)}`);
-        }
-      }
-
-      const bodyText = rawBody || media?.placeholder || "";
-      if (!bodyText) {
+      if (!mentionPrecheckText && !mediaUrl && !isPollEvent) {
         return;
       }
 
       const { wasMentioned, hasExplicitMention } = resolveMentions({
         content,
         userId: selfUserId,
-        text: bodyText,
+        text: mentionPrecheckText,
         mentionRegexes,
       });
       const allowTextCommands = core.channel.commands.shouldHandleTextCommands({
@@ -461,7 +443,10 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
         surface: "matrix",
       });
       const useAccessGroups = cfg.commands?.useAccessGroups !== false;
-      const hasControlCommandInMessage = core.channel.text.hasControlCommand(bodyText, cfg);
+      const hasControlCommandInMessage = core.channel.text.hasControlCommand(
+        mentionPrecheckText,
+        cfg,
+      );
       const commandGate = resolveControlCommandGate({
         useAccessGroups,
         authorizers: commandAuthorizers,
@@ -498,6 +483,62 @@ export function createMatrixRoomMessageHandler(params: MatrixMonitorHandlerParam
       const canDetectMention = mentionRegexes.length > 0 || hasExplicitMention;
       if (isRoom && shouldRequireMention && !wasMentioned && !shouldBypassMention) {
         logger.info("skipping room message", { roomId, reason: "no-mention" });
+        return;
+      }
+
+      if (isPollEvent) {
+        const pollSnapshot = await fetchMatrixPollSnapshot(client, roomId, event).catch((err) => {
+          logVerboseMessage(
+            `matrix: failed resolving poll snapshot room=${roomId} id=${event.event_id ?? "unknown"}: ${String(err)}`,
+          );
+          return null;
+        });
+        if (!pollSnapshot) {
+          return;
+        }
+        content = {
+          msgtype: "m.text",
+          body: pollSnapshot.text,
+        } as unknown as RoomMessageEventContent;
+      }
+
+      let media: {
+        path: string;
+        contentType?: string;
+        placeholder: string;
+      } | null = null;
+      const finalContentUrl =
+        "url" in content && typeof content.url === "string" ? content.url : undefined;
+      const finalContentFile =
+        "file" in content && content.file && typeof content.file === "object"
+          ? content.file
+          : undefined;
+      const finalMediaUrl = finalContentUrl ?? finalContentFile?.url;
+      const contentInfo =
+        "info" in content && content.info && typeof content.info === "object"
+          ? (content.info as { mimetype?: string; size?: number })
+          : undefined;
+      const contentType = contentInfo?.mimetype;
+      const contentSize = typeof contentInfo?.size === "number" ? contentInfo.size : undefined;
+      if (finalMediaUrl?.startsWith("mxc://")) {
+        try {
+          media = await downloadMatrixMedia({
+            client,
+            mxcUrl: finalMediaUrl,
+            contentType,
+            sizeBytes: contentSize,
+            maxBytes: mediaMaxBytes,
+            file: finalContentFile,
+          });
+        } catch (err) {
+          logVerboseMessage(`matrix: media download failed: ${String(err)}`);
+        }
+      }
+
+      const rawBody =
+        locationPayload?.text ?? (typeof content.body === "string" ? content.body.trim() : "");
+      const bodyText = rawBody || media?.placeholder || "";
+      if (!bodyText) {
         return;
       }
 
