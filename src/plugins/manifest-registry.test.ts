@@ -280,6 +280,61 @@ describe("loadPluginManifestRegistry", () => {
     expect(countDuplicateWarnings(loadRegistry(candidates))).toBe(0);
   });
 
+  it("includes a normalized resolved extension record", () => {
+    const dir = makeTempDir();
+    writeManifest(dir, {
+      id: "telegram",
+      name: "Telegram",
+      configSchema: { type: "object" },
+      channels: ["telegram"],
+      providers: ["telegram-provider"],
+    });
+    fs.writeFileSync(
+      path.join(dir, "package.json"),
+      JSON.stringify(
+        {
+          name: "@openclaw/telegram",
+          openclaw: {
+            channel: {
+              id: "telegram",
+              label: "Telegram",
+            },
+            install: {
+              npmSpec: "@openclaw/telegram",
+              defaultChoice: "npm",
+            },
+          },
+        },
+        null,
+        2,
+      ),
+    );
+
+    const registry = loadPluginManifestRegistry({
+      cache: false,
+      candidates: [
+        createPluginCandidate({
+          idHint: "telegram",
+          rootDir: dir,
+          origin: "bundled",
+        }),
+      ],
+    });
+
+    const record = registry.plugins[0];
+    expect(record?.resolvedExtension.id).toBe("telegram");
+    expect(record?.resolvedExtension.staticMetadata.package.manifest?.channel?.id).toBe("telegram");
+    expect(record?.resolvedExtension.contributions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: "surface.config" }),
+        expect.objectContaining({ kind: "adapter.runtime" }),
+        expect.objectContaining({ kind: "capability.provider-integration" }),
+        expect.objectContaining({ kind: "surface.channel-catalog" }),
+        expect.objectContaining({ kind: "surface.install" }),
+      ]),
+    );
+  });
+
   it("prefers higher-precedence origins for the same physical directory (config > workspace > global > bundled)", () => {
     const dir = makeTempDir();
     mkdirSafe(path.join(dir, "sub"));

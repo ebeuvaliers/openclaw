@@ -1,46 +1,79 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import type { OpenClawConfig } from "../../config/config.js";
-import type { PluginManifestRegistry } from "../../plugins/manifest-registry.js";
 import { createTrackedTempDirs } from "../../test-utils/tracked-temp-dirs.js";
-
-const hoisted = vi.hoisted(() => ({
-  loadPluginManifestRegistry: vi.fn(),
-}));
-
-vi.mock("../../plugins/manifest-registry.js", () => ({
-  loadPluginManifestRegistry: (...args: unknown[]) => hoisted.loadPluginManifestRegistry(...args),
-}));
-
-const { resolvePluginSkillDirs } = await import("./plugin-skills.js");
+const { collectPluginSkillDirsFromRegistry } = await import("./plugin-skills.js");
 
 const tempDirs = createTrackedTempDirs();
 
-function buildRegistry(params: { acpxRoot: string; helperRoot: string }): PluginManifestRegistry {
+type MockResolvedExtensionRegistry = {
+  diagnostics: unknown[];
+  extensions: Array<{
+    extension: {
+      id: string;
+      name?: string;
+      kind?: string;
+      origin?: "workspace" | "bundled" | "global" | "config";
+      rootDir?: string;
+      manifest: {
+        id: string;
+        configSchema: Record<string, unknown>;
+        skills?: string[];
+      };
+      staticMetadata: {
+        configSchema: Record<string, unknown>;
+        package: { entries: string[] };
+      };
+      contributions: unknown[];
+    };
+    manifestPath: string;
+  }>;
+};
+
+function buildRegistry(params: {
+  acpxRoot: string;
+  helperRoot: string;
+}): MockResolvedExtensionRegistry {
   return {
     diagnostics: [],
-    plugins: [
+    extensions: [
       {
-        id: "acpx",
-        name: "ACPX Runtime",
-        channels: [],
-        providers: [],
-        skills: ["./skills"],
-        origin: "workspace",
-        rootDir: params.acpxRoot,
-        source: params.acpxRoot,
+        extension: {
+          id: "acpx",
+          name: "ACPX Runtime",
+          manifest: {
+            id: "acpx",
+            configSchema: {},
+            skills: ["./skills"],
+          },
+          origin: "config",
+          rootDir: params.acpxRoot,
+          staticMetadata: {
+            configSchema: {},
+            package: { entries: ["index.ts"] },
+          },
+          contributions: [],
+        },
         manifestPath: path.join(params.acpxRoot, "openclaw.plugin.json"),
       },
       {
-        id: "helper",
-        name: "Helper",
-        channels: [],
-        providers: [],
-        skills: ["./skills"],
-        origin: "workspace",
-        rootDir: params.helperRoot,
-        source: params.helperRoot,
+        extension: {
+          id: "helper",
+          name: "Helper",
+          manifest: {
+            id: "helper",
+            configSchema: {},
+            skills: ["./skills"],
+          },
+          origin: "config",
+          rootDir: params.helperRoot,
+          staticMetadata: {
+            configSchema: {},
+            package: { entries: ["index.ts"] },
+          },
+          contributions: [],
+        },
         manifestPath: path.join(params.helperRoot, "openclaw.plugin.json"),
       },
     ],
@@ -50,19 +83,27 @@ function buildRegistry(params: { acpxRoot: string; helperRoot: string }): Plugin
 function createSinglePluginRegistry(params: {
   pluginRoot: string;
   skills: string[];
-}): PluginManifestRegistry {
+}): MockResolvedExtensionRegistry {
   return {
     diagnostics: [],
-    plugins: [
+    extensions: [
       {
-        id: "helper",
-        name: "Helper",
-        channels: [],
-        providers: [],
-        skills: params.skills,
-        origin: "workspace",
-        rootDir: params.pluginRoot,
-        source: params.pluginRoot,
+        extension: {
+          id: "helper",
+          name: "Helper",
+          manifest: {
+            id: "helper",
+            configSchema: {},
+            skills: params.skills,
+          },
+          origin: "config",
+          rootDir: params.pluginRoot,
+          staticMetadata: {
+            configSchema: {},
+            package: { entries: ["index.ts"] },
+          },
+          contributions: [],
+        },
         manifestPath: path.join(params.pluginRoot, "openclaw.plugin.json"),
       },
     ],
@@ -70,25 +111,21 @@ function createSinglePluginRegistry(params: {
 }
 
 async function setupAcpxAndHelperRegistry() {
-  const workspaceDir = await tempDirs.make("openclaw-");
   const acpxRoot = await tempDirs.make("openclaw-acpx-plugin-");
   const helperRoot = await tempDirs.make("openclaw-helper-plugin-");
   await fs.mkdir(path.join(acpxRoot, "skills"), { recursive: true });
   await fs.mkdir(path.join(helperRoot, "skills"), { recursive: true });
-  hoisted.loadPluginManifestRegistry.mockReturnValue(buildRegistry({ acpxRoot, helperRoot }));
-  return { workspaceDir, acpxRoot, helperRoot };
+  return { registry: buildRegistry({ acpxRoot, helperRoot }), acpxRoot, helperRoot };
 }
 
 async function setupPluginOutsideSkills() {
-  const workspaceDir = await tempDirs.make("openclaw-");
   const pluginRoot = await tempDirs.make("openclaw-plugin-");
   const outsideDir = await tempDirs.make("openclaw-outside-");
   const outsideSkills = path.join(outsideDir, "skills");
-  return { workspaceDir, pluginRoot, outsideSkills };
+  return { pluginRoot, outsideSkills };
 }
 
 afterEach(async () => {
-  hoisted.loadPluginManifestRegistry.mockReset();
   await tempDirs.cleanup();
 });
 
@@ -110,10 +147,10 @@ describe("resolvePluginSkillDirs", () => {
       ],
     },
   ])("$name", async ({ acpEnabled, expectedDirs }) => {
-    const { workspaceDir, acpxRoot, helperRoot } = await setupAcpxAndHelperRegistry();
+    const { registry, acpxRoot, helperRoot } = await setupAcpxAndHelperRegistry();
 
-    const dirs = resolvePluginSkillDirs({
-      workspaceDir,
+    const dirs = collectPluginSkillDirsFromRegistry({
+      registry,
       config: {
         acp: { enabled: acpEnabled },
       } as OpenClawConfig,
@@ -123,20 +160,18 @@ describe("resolvePluginSkillDirs", () => {
   });
 
   it("rejects plugin skill paths that escape the plugin root", async () => {
-    const { workspaceDir, pluginRoot, outsideSkills } = await setupPluginOutsideSkills();
+    const { pluginRoot, outsideSkills } = await setupPluginOutsideSkills();
     await fs.mkdir(path.join(pluginRoot, "skills"), { recursive: true });
     await fs.mkdir(outsideSkills, { recursive: true });
     const escapePath = path.relative(pluginRoot, outsideSkills);
 
-    hoisted.loadPluginManifestRegistry.mockReturnValue(
-      createSinglePluginRegistry({
-        pluginRoot,
-        skills: ["./skills", escapePath],
-      }),
-    );
+    const registry = createSinglePluginRegistry({
+      pluginRoot,
+      skills: ["./skills", escapePath],
+    });
 
-    const dirs = resolvePluginSkillDirs({
-      workspaceDir,
+    const dirs = collectPluginSkillDirsFromRegistry({
+      registry,
       config: {} as OpenClawConfig,
     });
 
@@ -144,7 +179,7 @@ describe("resolvePluginSkillDirs", () => {
   });
 
   it("rejects plugin skill symlinks that resolve outside plugin root", async () => {
-    const { workspaceDir, pluginRoot, outsideSkills } = await setupPluginOutsideSkills();
+    const { pluginRoot, outsideSkills } = await setupPluginOutsideSkills();
     const linkPath = path.join(pluginRoot, "skills-link");
     await fs.mkdir(outsideSkills, { recursive: true });
     await fs.symlink(
@@ -153,15 +188,13 @@ describe("resolvePluginSkillDirs", () => {
       process.platform === "win32" ? ("junction" as const) : ("dir" as const),
     );
 
-    hoisted.loadPluginManifestRegistry.mockReturnValue(
-      createSinglePluginRegistry({
-        pluginRoot,
-        skills: ["./skills-link"],
-      }),
-    );
+    const registry = createSinglePluginRegistry({
+      pluginRoot,
+      skills: ["./skills-link"],
+    });
 
-    const dirs = resolvePluginSkillDirs({
-      workspaceDir,
+    const dirs = collectPluginSkillDirsFromRegistry({
+      registry,
       config: {} as OpenClawConfig,
     });
 
