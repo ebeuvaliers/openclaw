@@ -392,7 +392,9 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
         }
         return lastResult ?? { channel: "signal", messageId: "" };
       }
-      const chunks = getSignalRuntime().channel.text.chunkText(text, SIGNAL_TEXT_CHUNK_LIMIT);
+      // Text-only: chunk and send; only first chunk carries the quote.
+      const limit = resolveTextChunkLimit(ctx.cfg, "signal", ctx.accountId ?? undefined);
+      const chunks = getSignalRuntime().channel.text.chunkText(text, limit);
       let lastResult: { channel: string; messageId: string } | undefined;
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
