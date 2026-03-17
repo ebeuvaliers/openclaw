@@ -301,6 +301,8 @@ async function deliverReplies(params: {
     params;
   for (const payload of replies) {
     const reply = resolveSendableOutboundReplyParts(payload);
+    const replyTo = payload.replyToId ?? undefined;
+    let firstChunk = true;
     const delivered = await deliverTextOrMediaReply({
       payload,
       text: reply.text,
@@ -311,7 +313,9 @@ async function deliverReplies(params: {
           account,
           maxBytes,
           accountId,
+          replyToId: firstChunk ? replyTo : undefined,
         });
+        firstChunk = false;
       },
       sendMedia: async ({ mediaUrl, caption }) => {
         await sendMessageSignal(target, caption ?? "", {
@@ -320,7 +324,9 @@ async function deliverReplies(params: {
           mediaUrl,
           maxBytes,
           accountId,
+          replyToId: firstChunk ? replyTo : undefined,
         });
+        firstChunk = false;
       },
     });
     if (delivered !== "empty") {
