@@ -11,8 +11,7 @@ import { normalizeSignalMessagingTarget } from "openclaw/plugin-sdk/channel-runt
 import { recordInboundSession } from "openclaw/plugin-sdk/channel-runtime";
 import { resolveChannelGroupRequireMention } from "openclaw/plugin-sdk/config-runtime";
 import { readSessionUpdatedAt, resolveStorePath } from "openclaw/plugin-sdk/config-runtime";
-import { enqueueSystemEvent } from "openclaw/plugin-sdk/infra-runtime";
-import { requestHeartbeatNow } from "openclaw/plugin-sdk/infra-runtime";
+import { enqueueSystemEvent, requestHeartbeatNow } from "openclaw/plugin-sdk/infra-runtime";
 import { kindFromMime } from "openclaw/plugin-sdk/media-runtime";
 import { hasControlCommand } from "openclaw/plugin-sdk/reply-runtime";
 import { dispatchInboundMessage } from "openclaw/plugin-sdk/reply-runtime";
