@@ -443,6 +443,7 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
             text: i === 0 ? text : "",
             mediaUrl,
             mediaLocalRoots: ctx.mediaLocalRoots,
+            ...(ctx.mediaReadFile ? { mediaReadFile: ctx.mediaReadFile } : {}),
             accountId: ctx.accountId ?? undefined,
             replyToId: i === 0 ? (ctx.replyToId ?? undefined) : undefined,
             deps: ctx.deps,
