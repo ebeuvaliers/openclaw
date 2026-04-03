@@ -294,49 +294,6 @@ async function sendFormattedSignalMedia(ctx: {
   return attachChannelToResult("signal", result);
 }
 
-async function sendSignalOutboundChunked(params: {
-  cfg: Parameters<typeof resolveSignalAccount>[0]["cfg"];
-  to: string;
-  text: string;
-  accountId?: string | null;
-  replyToId?: string | null;
-  deps?: { [channelId: string]: unknown };
-}): Promise<{ channel: string; messageId: string }> {
-  const limit = resolveTextChunkLimit(params.cfg, "signal", params.accountId ?? undefined);
-  const tableMode = resolveMarkdownTableMode({
-    cfg: params.cfg,
-    channel: "signal",
-    accountId: params.accountId ?? undefined,
-  });
-  let chunks =
-    limit === undefined
-      ? markdownToSignalTextChunks(params.text, Number.POSITIVE_INFINITY, { tableMode })
-      : markdownToSignalTextChunks(params.text, limit, { tableMode });
-  if (chunks.length === 0 && params.text) {
-    chunks = [{ text: params.text, styles: [] }];
-  }
-  const { send, maxBytes } = resolveSignalSendContext({
-    cfg: params.cfg,
-    accountId: params.accountId ?? undefined,
-    deps: params.deps,
-  });
-  let lastResult: { channel: string; messageId: string } | undefined;
-  for (let i = 0; i < chunks.length; i++) {
-    const chunk = chunks[i];
-    if (!chunk) continue;
-    const result = await send(params.to, chunk.text, {
-      cfg: params.cfg,
-      maxBytes,
-      accountId: params.accountId ?? undefined,
-      textMode: "plain",
-      textStyles: chunk.styles,
-      replyToId: i === 0 ? (params.replyToId ?? undefined) : undefined,
-    });
-    lastResult = { channel: "signal", ...result };
-  }
-  return lastResult ?? { channel: "signal", messageId: "" };
-}
-
 export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
   ...createSignalPluginBase({
     setupWizard: signalSetupWizard,
@@ -453,7 +410,7 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
         return lastResult ?? { channel: "signal", messageId: "" };
       }
       // Text-only: chunk and send; only first chunk carries the quote.
-      return await sendSignalOutboundChunked({
+      const fmtResults = await sendFormattedSignalText({
         cfg: ctx.cfg,
         to: ctx.to,
         text,
@@ -461,6 +418,9 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount> = {
         replyToId: ctx.replyToId,
         deps: ctx.deps,
       });
+      const msgs = fmtResults.results ?? [];
+      const lastMsg = msgs[msgs.length - 1];
+      return { channel: "signal", messageId: lastMsg?.messageId ?? "" };
     },
     ...createAttachedChannelResultAdapter({
       channel: "signal",
