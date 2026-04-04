@@ -319,6 +319,7 @@ async function deliverReplies(params: {
   for (const payload of replies) {
     const reply = resolveSendableOutboundReplyParts(payload);
     const replyTo = payload.replyToId ?? undefined;
+    const replyToAuthor = (payload as { replyToAuthor?: string }).replyToAuthor ?? undefined;
     let sentCount = 0;
     const delivered = await deliverTextOrMediaReply({
       payload,
@@ -331,6 +332,7 @@ async function deliverReplies(params: {
           maxBytes,
           accountId,
           replyToId: sentCount === 0 ? replyTo : undefined,
+          quoteAuthor: sentCount === 0 ? replyToAuthor : undefined,
         });
         sentCount += 1;
       },
@@ -342,6 +344,7 @@ async function deliverReplies(params: {
           maxBytes,
           accountId,
           replyToId: sentCount === 0 ? replyTo : undefined,
+          quoteAuthor: sentCount === 0 ? replyToAuthor : undefined,
         });
         sentCount += 1;
       },
