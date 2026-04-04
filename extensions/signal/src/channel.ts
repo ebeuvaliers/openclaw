@@ -227,6 +227,7 @@ async function sendFormattedSignalMedia(ctx: {
   mediaReadFile?: (filePath: string) => Promise<Buffer>;
   accountId?: string | null;
   replyToId?: string | null;
+  replyToAuthor?: string | null;
   deps?: { [channelId: string]: unknown };
   abortSignal?: AbortSignal;
 }) {
@@ -250,6 +251,7 @@ async function sendFormattedSignalMedia(ctx: {
   const quoteParams = resolveSignalQuoteParams({
     to: ctx.to,
     replyToId: ctx.replyToId ?? undefined,
+    quoteAuthor: ctx.replyToAuthor ?? undefined,
   });
   const result = await send(ctx.to, formatted.text, {
     cfg: ctx.cfg,
@@ -389,6 +391,7 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount, SignalProbe> =
           deps,
           abortSignal,
           replyToId,
+          replyToAuthor,
         }) =>
           await sendFormattedSignalMedia({
             cfg,
@@ -399,6 +402,7 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount, SignalProbe> =
             mediaReadFile,
             accountId,
             replyToId,
+            replyToAuthor,
             deps,
             abortSignal,
           }),
