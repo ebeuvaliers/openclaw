@@ -126,6 +126,7 @@ type ChannelHandlerParams = {
   to: string;
   accountId?: string;
   replyToId?: string | null;
+  replyToAuthor?: string | null;
   threadId?: string | number | null;
   identity?: OutboundIdentity;
   deps?: OutboundSendDeps;
@@ -251,6 +252,7 @@ function createChannelOutboundContextBase(
     to: params.to,
     accountId: params.accountId,
     replyToId: params.replyToId,
+    replyToAuthor: params.replyToAuthor,
     threadId: params.threadId,
     identity: params.identity,
     gifPlayback: params.gifPlayback,
@@ -273,6 +275,7 @@ type DeliverOutboundPayloadsCoreParams = {
   accountId?: string;
   payloads: ReplyPayload[];
   replyToId?: string | null;
+  replyToAuthor?: string | null;
   threadId?: string | number | null;
   identity?: OutboundIdentity;
   deps?: OutboundSendDeps;
@@ -584,6 +587,7 @@ async function deliverOutboundPayloadsCore(
     deps,
     accountId,
     replyToId: params.replyToId,
+    replyToAuthor: params.replyToAuthor,
     threadId: params.threadId,
     identity: params.identity,
     gifPlayback: params.gifPlayback,
