@@ -394,6 +394,9 @@ export async function dispatchReplyFromConfig(params: {
     const result = await routeReplyToOriginating(payload, {
       abortSignal,
       mirror,
+      isGroup,
+      groupId,
+      replyToAuthor: ctx.ReplyToAuthor ?? undefined,
     });
     if (result && !result.ok) {
       logVerbose(`dispatch-from-config: route-reply failed: ${result.error ?? "unknown error"}`);
