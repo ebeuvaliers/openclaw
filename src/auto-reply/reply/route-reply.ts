@@ -55,6 +55,8 @@ export type RouteReplyParams = {
   isGroup?: boolean;
   /** Group or channel identifier for correlation with received events */
   groupId?: string;
+  /** Author identifier of the quoted message (provider-specific, e.g. phone number or UUID for Signal). */
+  replyToAuthor?: string;
 };
 
 export type RouteReplyResult = {
@@ -188,6 +190,7 @@ export async function routeReply(params: RouteReplyParams): Promise<RouteReplyRe
       accountId: accountId ?? undefined,
       payloads: [externalPayload],
       replyToId: resolvedReplyToId ?? null,
+      replyToAuthor: params.replyToAuthor ?? null,
       threadId: resolvedThreadId,
       session: outboundSession,
       abortSignal,

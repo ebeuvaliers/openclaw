@@ -171,6 +171,7 @@ async function sendFormattedSignalText(ctx: {
   text: string;
   accountId?: string | null;
   replyToId?: string | null;
+  replyToAuthor?: string | null;
   deps?: { [channelId: string]: unknown };
   abortSignal?: AbortSignal;
 }) {
@@ -195,11 +196,13 @@ async function sendFormattedSignalText(ctx: {
     chunks = [{ text: ctx.text, styles: [] }];
   }
   const results = [];
+  let sentCount = 0;
   for (const chunk of chunks) {
     ctx.abortSignal?.throwIfAborted();
     const quoteParams = resolveSignalQuoteParams({
       to: ctx.to,
-      replyToId: ctx.replyToId ?? undefined,
+      replyToId: sentCount === 0 ? ctx.replyToId ?? undefined : undefined,
+      quoteAuthor: sentCount === 0 ? ctx.replyToAuthor ?? undefined : undefined,
     });
     const result = await send(ctx.to, chunk.text, {
       cfg: ctx.cfg,
@@ -210,6 +213,7 @@ async function sendFormattedSignalText(ctx: {
       ...quoteParams,
     });
     results.push(result);
+    sentCount += 1;
   }
   return attachChannelToResults("signal", results);
 }
@@ -363,13 +367,14 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount, SignalProbe> =
         chunker: chunkText,
         chunkerMode: "text",
         textChunkLimit: 4000,
-        sendFormattedText: async ({ cfg, to, text, accountId, deps, abortSignal, replyToId }) =>
+        sendFormattedText: async ({ cfg, to, text, accountId, deps, abortSignal, replyToId, replyToAuthor }) =>
           await sendFormattedSignalText({
             cfg,
             to,
             text,
             accountId,
             replyToId,
+            replyToAuthor,
             deps,
             abortSignal,
           }),
