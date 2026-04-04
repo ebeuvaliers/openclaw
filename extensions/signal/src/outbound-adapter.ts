@@ -105,7 +105,7 @@ export const signalOutbound: ChannelOutboundAdapter = {
   },
   ...createAttachedChannelResultAdapter({
     channel: "signal",
-    sendText: async ({ cfg, to, text, accountId, deps }) => {
+    sendText: async ({ cfg, to, text, accountId, deps, replyToId }) => {
       const send = resolveSignalSender(deps);
       const maxBytes = resolveSignalMaxBytes({
         cfg,
@@ -115,6 +115,7 @@ export const signalOutbound: ChannelOutboundAdapter = {
         cfg,
         maxBytes,
         accountId: accountId ?? undefined,
+        replyToId: replyToId ?? undefined,
       });
     },
     sendMedia: async ({
@@ -126,6 +127,7 @@ export const signalOutbound: ChannelOutboundAdapter = {
       mediaReadFile,
       accountId,
       deps,
+      replyToId,
     }) => {
       const send = resolveSignalSender(deps);
       const maxBytes = resolveSignalMaxBytes({
@@ -139,6 +141,7 @@ export const signalOutbound: ChannelOutboundAdapter = {
         accountId: accountId ?? undefined,
         mediaLocalRoots,
         mediaReadFile,
+        replyToId: replyToId ?? undefined,
       });
     },
   }),
