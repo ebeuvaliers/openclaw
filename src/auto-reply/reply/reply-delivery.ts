@@ -43,13 +43,23 @@ export function normalizeReplyPayloadDirectives(params: {
   const mediaUrls = params.payload.mediaUrls ?? parsed?.mediaUrls;
   const mediaUrl = params.payload.mediaUrl ?? parsed?.mediaUrl ?? mediaUrls?.[0];
 
+  // If a [[reply_to:...]] directive remaps replyToId, the original replyToAuthor
+  // is no longer valid for the new target — clear it to avoid mismatched quote metadata.
+  const resolvedReplyToId = params.payload.replyToId ?? parsed?.replyToId;
+  const directiveRemappedReplyTo =
+    parsed?.replyToId != null && parsed.replyToId !== params.payload.replyToId;
+  const resolvedReplyToAuthor = directiveRemappedReplyTo
+    ? undefined
+    : params.payload.replyToAuthor;
+
   return {
     payload: {
       ...params.payload,
       text,
       mediaUrls,
       mediaUrl,
-      replyToId: params.payload.replyToId ?? parsed?.replyToId,
+      replyToId: resolvedReplyToId,
+      replyToAuthor: resolvedReplyToAuthor,
       replyToTag: params.payload.replyToTag || parsed?.replyToTag,
       replyToCurrent: params.payload.replyToCurrent || parsed?.replyToCurrent,
       audioAsVoice: Boolean(params.payload.audioAsVoice || parsed?.audioAsVoice),
@@ -61,6 +71,9 @@ export function normalizeReplyPayloadDirectives(params: {
 export function createBlockReplyDeliveryHandler(params: {
   onBlockReply: (payload: ReplyPayload, context?: BlockReplyContext) => Promise<void> | void;
   currentMessageId?: string;
+  /** Author (e.g. phone number) of the current inbound message, used to populate replyToAuthor
+   *  alongside replyToId when the reply is threaded to the current message. */
+  currentMessageAuthor?: string;
   normalizeStreamingText: (payload: ReplyPayload) => { text?: string; skip: boolean };
   applyReplyToMode: (payload: ReplyPayload) => ReplyPayload;
   normalizeMediaPaths?: (payload: ReplyPayload) => Promise<ReplyPayload>;
@@ -75,6 +88,10 @@ export function createBlockReplyDeliveryHandler(params: {
       return;
     }
 
+    // When replyToId falls back to the current inbound message id, also populate
+    // replyToAuthor from the inbound sender so Signal groups can resolve the quote.
+    const impliedByCurrentMessage =
+      !payload.replyToId && payload.replyToCurrent !== false && Boolean(params.currentMessageId);
     const taggedPayload = applyReplyTagsToPayload(
       {
         ...payload,
@@ -83,6 +100,9 @@ export function createBlockReplyDeliveryHandler(params: {
         replyToId:
           payload.replyToId ??
           (payload.replyToCurrent === false ? undefined : params.currentMessageId),
+        replyToAuthor:
+          payload.replyToAuthor ??
+          (impliedByCurrentMessage ? params.currentMessageAuthor : undefined),
       },
       params.currentMessageId,
     );
