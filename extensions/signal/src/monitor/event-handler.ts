@@ -215,6 +215,7 @@ export function createSignalEventHandler(deps: SignalEventHandlerDeps) {
       GroupSubject: entry.isGroup ? (entry.groupName ?? undefined) : undefined,
       SenderName: entry.senderName,
       SenderId: entry.senderDisplay,
+      SenderE164: entry.senderRecipient,
       Provider: "signal" as const,
       Surface: "signal" as const,
       MessageSid: entry.messageId,
