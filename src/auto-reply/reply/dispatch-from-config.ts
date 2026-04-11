@@ -338,7 +338,7 @@ export async function dispatchReplyFromConfig(
 
   const routeReplyToOriginating = async (
     payload: ReplyPayload,
-    options?: { abortSignal?: AbortSignal; mirror?: boolean },
+    options?: { abortSignal?: AbortSignal; mirror?: boolean; replyToAuthor?: string },
   ) => {
     if (!shouldRouteToOriginating || !originatingChannel || !originatingTo || !routeReplyRuntime) {
       return null;
@@ -357,6 +357,7 @@ export async function dispatchReplyFromConfig(
       cfg,
       abortSignal: options?.abortSignal,
       mirror: options?.mirror,
+      replyToAuthor: options?.replyToAuthor,
       isGroup,
       groupId,
     });
@@ -384,8 +385,6 @@ export async function dispatchReplyFromConfig(
     const result = await routeReplyToOriginating(payload, {
       abortSignal,
       mirror,
-      isGroup,
-      groupId,
       replyToAuthor: ctx.ReplyToAuthor ?? undefined,
     });
     if (result && !result.ok) {
@@ -590,7 +589,9 @@ export async function dispatchReplyFromConfig(
         inboundAudio,
         ttsAuto: sessionTtsAuto,
       });
-      const result = await routeReplyToOriginating(ttsPayload);
+      const result = await routeReplyToOriginating(ttsPayload, {
+        replyToAuthor: ctx.ReplyToAuthor ?? undefined,
+      });
       if (result) {
         if (!result.ok) {
           logVerbose(
