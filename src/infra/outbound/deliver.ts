@@ -514,6 +514,7 @@ export async function deliverOutboundPayloads(
         payloads,
         threadId: params.threadId,
         replyToId: params.replyToId,
+        replyToAuthor: params.replyToAuthor,
         bestEffort: params.bestEffort,
         gifPlayback: params.gifPlayback,
         forceDocument: params.forceDocument,
