@@ -385,7 +385,7 @@ export async function dispatchReplyFromConfig(
     const result = await routeReplyToOriginating(payload, {
       abortSignal,
       mirror,
-      replyToAuthor: ctx.ReplyToAuthor ?? undefined,
+      replyToAuthor: payload.replyToAuthor ?? ctx.ReplyToAuthor ?? undefined,
     });
     if (result && !result.ok) {
       logVerbose(`dispatch-from-config: route-reply failed: ${result.error ?? "unknown error"}`);
@@ -590,7 +590,7 @@ export async function dispatchReplyFromConfig(
         ttsAuto: sessionTtsAuto,
       });
       const result = await routeReplyToOriginating(ttsPayload, {
-        replyToAuthor: ctx.ReplyToAuthor ?? undefined,
+        replyToAuthor: payload.replyToAuthor ?? ctx.ReplyToAuthor ?? undefined,
       });
       if (result) {
         if (!result.ok) {
