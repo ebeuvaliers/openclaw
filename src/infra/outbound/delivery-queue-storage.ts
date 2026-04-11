@@ -21,6 +21,7 @@ export type QueuedDeliveryPayload = {
   payloads: ReplyPayload[];
   threadId?: string | number | null;
   replyToId?: string | null;
+  replyToAuthor?: string | null;
   bestEffort?: boolean;
   gifPlayback?: boolean;
   forceDocument?: boolean;
@@ -139,6 +140,7 @@ export async function enqueueDelivery(
     payloads: params.payloads,
     threadId: params.threadId,
     replyToId: params.replyToId,
+    replyToAuthor: params.replyToAuthor,
     bestEffort: params.bestEffort,
     gifPlayback: params.gifPlayback,
     forceDocument: params.forceDocument,

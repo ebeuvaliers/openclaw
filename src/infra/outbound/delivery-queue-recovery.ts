@@ -108,6 +108,7 @@ function buildRecoveryDeliverParams(entry: QueuedDelivery, cfg: OpenClawConfig) 
     payloads: entry.payloads,
     threadId: entry.threadId,
     replyToId: entry.replyToId,
+    replyToAuthor: entry.replyToAuthor,
     bestEffort: entry.bestEffort,
     gifPlayback: entry.gifPlayback,
     forceDocument: entry.forceDocument,

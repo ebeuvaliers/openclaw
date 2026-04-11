@@ -552,7 +552,7 @@ export function createSignalEventHandler(deps: SignalEventHandlerDeps) {
         sender,
       });
     const quoteText = normalizeOptionalString(dataMessage?.quote?.text) ?? "";
-    const { contextVisibilityMode, quoteSenderAllowed, visibleQuoteText, visibleQuoteSender } =
+    const { contextVisibilityMode, quoteSenderAllowed, visibleQuoteText, visibleQuoteSender, decision: quoteDecision } =
       resolveSignalQuoteContext({
         cfg: deps.cfg,
         accountId: deps.accountId,
@@ -883,7 +883,7 @@ export function createSignalEventHandler(deps: SignalEventHandlerDeps) {
       replyToBody: visibleQuoteText || undefined,
       replyToSender: visibleQuoteSender,
       replyToIsQuote: visibleQuoteText ? true : undefined,
-      replyToAuthor: quoteAuthor,
+      replyToAuthor: quoteDecision.include ? quoteAuthor : undefined,
     });
   };
 }

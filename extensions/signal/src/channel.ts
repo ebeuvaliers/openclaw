@@ -82,12 +82,14 @@ async function sendSignalOutbound(params: {
   mediaReadFile?: (filePath: string) => Promise<Buffer>;
   accountId?: string;
   replyToId?: string | null;
+  replyToAuthor?: string | null;
   deps?: { [channelId: string]: unknown };
 }) {
   const { send, maxBytes } = await resolveSignalSendContext(params);
   const quoteParams = resolveSignalQuoteParams({
     to: params.to,
     replyToId: params.replyToId ?? undefined,
+    quoteAuthor: params.replyToAuthor ?? undefined,
   });
   return await send(params.to, params.text, {
     cfg: params.cfg,
@@ -406,13 +408,14 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount, SignalProbe> =
       },
       attachedResults: {
         channel: "signal",
-        sendText: async ({ cfg, to, text, accountId, deps, replyToId }) =>
+        sendText: async ({ cfg, to, text, accountId, deps, replyToId, replyToAuthor }) =>
           await sendSignalOutbound({
             cfg,
             to,
             text,
             accountId: accountId ?? undefined,
             replyToId,
+            replyToAuthor,
             deps,
           }),
         sendMedia: async ({
@@ -425,6 +428,7 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount, SignalProbe> =
           accountId,
           deps,
           replyToId,
+          replyToAuthor,
         }) =>
           await sendSignalOutbound({
             cfg,
@@ -435,6 +439,7 @@ export const signalPlugin: ChannelPlugin<ResolvedSignalAccount, SignalProbe> =
             mediaReadFile,
             accountId: accountId ?? undefined,
             replyToId,
+            replyToAuthor,
             deps,
           }),
       },
