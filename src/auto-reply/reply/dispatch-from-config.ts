@@ -373,6 +373,8 @@ export async function dispatchReplyFromConfig(
     payload: ReplyPayload,
     abortSignal?: AbortSignal,
     mirror?: boolean,
+    /** When true, suppress ctx.ReplyToAuthor inheritance (tool-result / block-reply paths). */
+    suppressContextReplyToAuthor?: boolean,
   ): Promise<void> => {
     // Keep the runtime guard explicit because this helper is called from nested
     // reply callbacks where TypeScript cannot narrow shouldRouteToOriginating.
@@ -385,7 +387,9 @@ export async function dispatchReplyFromConfig(
     const result = await routeReplyToOriginating(payload, {
       abortSignal,
       mirror,
-      replyToAuthor: payload.replyToAuthor ?? ctx.ReplyToAuthor ?? undefined,
+      replyToAuthor: suppressContextReplyToAuthor
+        ? (payload.replyToAuthor ?? undefined)
+        : (payload.replyToAuthor ?? ctx.ReplyToAuthor ?? undefined),
     });
     if (result && !result.ok) {
       logVerbose(`dispatch-from-config: route-reply failed: ${result.error ?? "unknown error"}`);
@@ -849,7 +853,7 @@ export async function dispatchReplyFromConfig(
               return;
             }
             if (shouldRouteToOriginating) {
-              await sendPayloadAsync(deliveryPayload, undefined, false);
+              await sendPayloadAsync(deliveryPayload, undefined, false, true);
             } else {
               dispatcher.sendToolResult(deliveryPayload);
             }
@@ -921,7 +925,7 @@ export async function dispatchReplyFromConfig(
               ttsAuto: sessionTtsAuto,
             });
             if (shouldRouteToOriginating) {
-              await sendPayloadAsync(ttsPayload, context?.abortSignal, false);
+              await sendPayloadAsync(ttsPayload, context?.abortSignal, false, true);
             } else {
               dispatcher.sendBlockReply(ttsPayload);
             }

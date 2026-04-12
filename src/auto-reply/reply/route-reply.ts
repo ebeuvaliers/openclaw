@@ -196,7 +196,7 @@ export async function routeReply(params: RouteReplyParams): Promise<RouteReplyRe
   const resolvedReplyToAuthor =
     resolvedReplyToId === params.payload.replyToId ? (params.replyToAuthor ?? null) : null;
 
-    try {
+  try {
     // Provider docking: this is an execution boundary (we're about to send).
     // Keep the module cheap to import by loading outbound plumbing lazily.
     const { deliverOutboundPayloads } = await loadDeliverRuntime();

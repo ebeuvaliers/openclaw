@@ -120,6 +120,7 @@ export function resolveSignalQuoteParams(input: {
   ) {
     return { quoteTimestamp, quoteAuthor };
   }
+  // Group messages may not carry a resolvable quote author; skip quoting rather than sending a malformed quote
   return {};
 }
 
