@@ -194,9 +194,11 @@ export async function routeReply(params: RouteReplyParams): Promise<RouteReplyRe
   // a [[reply_to:...]] directive or transport override), the inbound author no
   // longer matches the new quote target — omit it to avoid mismatched metadata.
   const resolvedReplyToAuthor =
-    resolvedReplyToId === params.payload.replyToId ? (params.replyToAuthor ?? null) : null;
+    resolvedReplyToId === params.payload.replyToId
+      ? (params.replyToAuthor ?? payload.replyToAuthor ?? null)
+      : null;
 
-    try {
+  try {
     // Provider docking: this is an execution boundary (we're about to send).
     // Keep the module cheap to import by loading outbound plumbing lazily.
     const { deliverOutboundPayloads } = await loadDeliverRuntime();
