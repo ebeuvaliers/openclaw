@@ -247,6 +247,43 @@ describe("signal createSignalEventHandler inbound context", () => {
     expect(capture.ctx?.ReplyToIsQuote).toBe(true);
   });
 
+  it("populates replyToAuthor from authorNumber when author and authorUuid are absent in allowlist_quote mode", async () => {
+    const handler = createSignalEventHandler(
+      createBaseSignalEventHandlerDeps({
+        cfg: {
+          messages: { inbound: { debounceMs: 0 } },
+          channels: {
+            signal: {
+              groupPolicy: "allowlist",
+              groupAllowFrom: ["+15550001111"],
+              contextVisibility: "allowlist_quote",
+            },
+          },
+        },
+        groupPolicy: "allowlist",
+        groupAllowFrom: ["+15550001111"],
+        historyLimit: 0,
+      }),
+    );
+
+    await handler(
+      createSignalReceiveEvent({
+        dataMessage: {
+          message: "",
+          quote: { text: "authorNumber only quote", authorNumber: "+15550002222" },
+          groupInfo: { groupId: "g1", groupName: "Test Group" },
+          attachments: [],
+        },
+      }),
+    );
+
+    expect(capture.ctx).toBeTruthy();
+    expect(capture.ctx?.ReplyToBody).toBe("authorNumber only quote");
+    expect(capture.ctx?.ReplyToSender).toBe("+15550002222");
+    expect(capture.ctx?.ReplyToIsQuote).toBe(true);
+    expect(capture.ctx?.ReplyToAuthor).toBe("+15550002222");
+  });
+
   it("forwards all fetched attachments via MediaPaths/MediaTypes", async () => {
     const handler = createSignalEventHandler(
       createBaseSignalEventHandlerDeps({
