@@ -176,21 +176,5 @@ export type ReplyPayload = {
   channelData?: Record<string, unknown>;
 };
 
-export type ReplyPayloadMetadata = {
-  assistantMessageIndex?: number;
-};
-
-const replyPayloadMetadata = new WeakMap<object, ReplyPayloadMetadata>();
-
-export function setReplyPayloadMetadata<T extends object>(
-  payload: T,
-  metadata: ReplyPayloadMetadata,
-): T {
-  const previous = replyPayloadMetadata.get(payload);
-  replyPayloadMetadata.set(payload, { ...previous, ...metadata });
-  return payload;
-}
-
-export function getReplyPayloadMetadata(payload: object): ReplyPayloadMetadata | undefined {
-  return replyPayloadMetadata.get(payload);
-}
+export type { ReplyPayloadMetadata, } from './reply-payload.js';
+export { getReplyPayloadMetadata, setReplyPayloadMetadata } from './reply-payload.js';
