@@ -23,6 +23,8 @@ export type ChannelOutboundContext = {
   /** Send image as document to avoid Telegram compression. */
   forceDocument?: boolean;
   replyToId?: string | null;
+  /** Author of the quoted message, forwarded from inbound quote context (e.g. Signal group replies). */
+  replyToAuthor?: string | null;
   threadId?: string | number | null;
   accountId?: string | null;
   identity?: OutboundIdentity;
