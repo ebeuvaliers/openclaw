@@ -533,4 +533,46 @@ describe("routeReply", () => {
       mirror: undefined,
     });
   });
+
+  it("falls back to payload.replyToAuthor when params.replyToAuthor is not provided", async () => {
+    await routeReply({
+      payload: { text: "hi", replyToId: "1710000000.0001", replyToAuthor: "U_AUTHOR" },
+      channel: "slack",
+      to: "channel:C123",
+      cfg: {} as never,
+    });
+    expectLastDelivery({
+      replyToId: "1710000000.0001",
+      replyToAuthor: "U_AUTHOR",
+    });
+  });
+
+  it("params.replyToAuthor overrides payload.replyToAuthor when both are set", async () => {
+    await routeReply({
+      payload: { text: "hi", replyToId: "1710000000.0001", replyToAuthor: "U_FROM_PAYLOAD" },
+      channel: "slack",
+      to: "channel:C123",
+      replyToAuthor: "U_FROM_PARAMS",
+      cfg: {} as never,
+    });
+    expectLastDelivery({
+      replyToId: "1710000000.0001",
+      replyToAuthor: "U_FROM_PARAMS",
+    });
+  });
+
+  it("clears replyToAuthor when transport remaps replyToId", async () => {
+    await routeReply({
+      payload: { text: "hi", replyToAuthor: "U_AUTHOR" },
+      channel: "slack",
+      to: "channel:C123",
+      threadId: "1710000000.9999",
+      replyToAuthor: "U_FROM_PARAMS",
+      cfg: {} as never,
+    });
+    expectLastDelivery({
+      replyToId: "1710000000.9999",
+      replyToAuthor: null,
+    });
+  });
 });
