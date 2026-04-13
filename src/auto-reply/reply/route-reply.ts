@@ -181,6 +181,13 @@ export async function routeReply(params: RouteReplyParams): Promise<RouteReplyRe
       ? (replyTransport.threadId ?? null)
       : (threadId ?? null);
 
+  // Only forward replyToAuthor when the reply target hasn't been remapped.
+  // If resolvedReplyToId differs from the original payload replyToId (due to
+  // a [[reply_to:...]] directive or transport override), the inbound author no
+  // longer matches the new quote target — omit it to avoid mismatched metadata.
+  const resolvedReplyToAuthor =
+    resolvedReplyToId === replyToId ? (params.replyToAuthor ?? null) : null;
+
   try {
     // Provider docking: this is an execution boundary (we're about to send).
     // Keep the module cheap to import by loading outbound plumbing lazily.
@@ -197,7 +204,7 @@ export async function routeReply(params: RouteReplyParams): Promise<RouteReplyRe
       accountId: accountId ?? undefined,
       payloads: [externalPayload],
       replyToId: resolvedReplyToId ?? null,
-      replyToAuthor: params.replyToAuthor ?? null,
+      replyToAuthor: resolvedReplyToAuthor,
       threadId: resolvedThreadId,
       session: outboundSession,
       abortSignal,
