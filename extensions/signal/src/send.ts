@@ -99,6 +99,7 @@ export function resolveSignalQuoteParams(input: {
     return { quoteTimestamp, quoteAuthor };
   }
   return {};
+}
 
 let signalConfigRuntimePromise:
   | Promise<typeof import("openclaw/plugin-sdk/config-runtime")>
