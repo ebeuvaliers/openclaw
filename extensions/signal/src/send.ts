@@ -8,6 +8,8 @@ import { resolveSignalAccount } from "./accounts.js";
 import { signalRpcRequest } from "./client.js";
 import { markdownToSignalText, type SignalTextStyleRange } from "./format.js";
 import { resolveSignalRpcContext } from "./rpc-context.js";
+import { resolveSignalQuoteParams } from "./send-quote.js";
+export { resolveSignalQuoteParams };
 
 export type SignalSendOpts = {
   cfg: OpenClawConfig;
@@ -53,9 +55,6 @@ type SignalTarget =
   | { type: "recipient"; recipient: string }
   | { type: "group"; groupId: string }
   | { type: "username"; username: string };
-
-import { resolveSignalQuoteParams } from "./send-quote.js";
-export { resolveSignalQuoteParams };
 
 async function resolveSignalRpcAccountInfo(
   opts: Pick<SignalSendOpts, "cfg" | "baseUrl" | "account" | "accountId">,
